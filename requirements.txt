@@ -1,0 +1,2 @@
+# DVC - Data Version Control
+dvc==3.64.0
