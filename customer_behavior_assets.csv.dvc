@@ -1,0 +1,5 @@
+outs:
+- md5: cd877d138572be0f3cf775c988cc74df
+  size: 25780197
+  hash: md5
+  path: customer_behavior_assets.csv
