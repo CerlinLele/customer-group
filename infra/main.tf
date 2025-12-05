@@ -1,6 +1,11 @@
-# S3 bucket for storing customer data
-resource "aws_s3_bucket" "customer_data" {
-  bucket = "${var.project_name}-${var.environment}-data-${data.aws_caller_identity.current.account_id}"
+# Get current AWS account ID
+data "aws_caller_identity" "current" {}
+
+# S3 bucket module for storing customer data
+module "customer_data_bucket" {
+  source = "./modules/s3_bucket"
+
+  bucket_name = "${var.project_name}-${var.environment}-data-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     Name        = "${var.project_name}-data-bucket"
@@ -8,35 +13,32 @@ resource "aws_s3_bucket" "customer_data" {
   }
 }
 
-# Enable versioning for data protection
-resource "aws_s3_bucket_versioning" "customer_data_versioning" {
-  bucket = aws_s3_bucket.customer_data.id
+# Glue ETL pipeline module for customer data processing
+module "glue_pipeline" {
+  source = "./modules/glue"
 
-  versioning_configuration {
-    status = "Enabled"
+  # JSON configuration file path
+  config_file_path = "${path.root}/../glue_scripts/config/glue_jobs_config.json"
+
+  # S3 bucket configuration (from S3 module)
+  s3_bucket_name = module.customer_data_bucket.bucket_id
+  s3_bucket_arn  = module.customer_data_bucket.bucket_arn
+
+  # Environment configuration
+  environment  = var.environment
+  project_name = var.project_name
+
+  # Glue configuration
+  glue_role_name            = "GlueCustomerDataRole"
+  enable_job_bookmarks      = true
+  enable_continuous_logging = true
+
+  # Tags
+  tags = {
+    Component = "DataPipeline"
+    Team      = "DataEngineering"
   }
+
+  # Dependency: ensure S3 bucket is created first
+  depends_on = [module.customer_data_bucket]
 }
-
-# Block public access to the bucket
-resource "aws_s3_bucket_public_access_block" "customer_data_pab" {
-  bucket = aws_s3_bucket.customer_data.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# Server-side encryption
-resource "aws_s3_bucket_server_side_encryption_configuration" "customer_data_encryption" {
-  bucket = aws_s3_bucket.customer_data.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# Get current AWS account ID
-data "aws_caller_identity" "current" {}
