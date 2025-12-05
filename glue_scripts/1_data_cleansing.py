@@ -9,12 +9,13 @@ AWS Glue - Data Cleansing Job
 import sys
 import logging
 from datetime import datetime
+from pyspark.context import SparkContext
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.functions import (
     col, when, to_date, to_timestamp,
     trim, upper, lower, length,
     isnan, isnull, coalesce, lit,
-    row_number, md5, concat_ws
+    row_number, md5, concat_ws, year, month, sum
 )
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType, DateType
 

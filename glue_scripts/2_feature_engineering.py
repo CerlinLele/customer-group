@@ -16,6 +16,7 @@ AWS Glue - Feature Engineering Job
 import sys
 import logging
 from datetime import datetime, timedelta
+from pyspark.context import SparkContext
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.functions import (
     col, when, sum as spark_sum, avg, max as spark_max, min as spark_min,
