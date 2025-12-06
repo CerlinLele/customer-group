@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.45"  # 允许 5.45.x 及以上 5.x 版本
+      version = "~> 5.45" # 允许 5.45.x 及以上 5.x 版本
     }
   }
 }
