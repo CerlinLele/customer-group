@@ -6,7 +6,7 @@ resource "aws_glue_trigger" "job_dependency_triggers" {
     for job_name, job in local.jobs_map :
     job_name => job
     if length(lookup(job, "dependencies", [])) > 0 &&
-       length([for dep in lookup(job, "dependencies", []) : dep if contains(keys(local.jobs_map), dep)]) > 0
+    length([for dep in lookup(job, "dependencies", []) : dep if contains(keys(local.jobs_map), dep)]) > 0
   }
 
   name    = "${each.value.job_name}-trigger"
