@@ -36,7 +36,7 @@ output "trigger_names" {
 output "glue_resources_summary" {
   description = "Summary of Glue resources created"
   value = {
-    role_arn      = aws_iam_role.glue_role.arn
+    role_arn       = aws_iam_role.glue_role.arn
     database_count = length(aws_glue_catalog_database.databases)
     job_count      = length(aws_glue_job.jobs)
     trigger_count  = length(aws_glue_trigger.job_dependency_triggers)
