@@ -8,11 +8,6 @@ resource "aws_s3_object" "raw_folder" {
   key          = "raw/"
   content_type = "application/x-directory"
 
-  tags = {
-    Name        = "Raw data directory"
-    Description = "Directory for raw customer data files"
-  }
-
   depends_on = [module.customer_data_bucket]
 }
 
@@ -68,11 +63,6 @@ resource "aws_s3_object" "cleaned_folder" {
   key          = "cleaned/"
   content_type = "application/x-directory"
 
-  tags = {
-    Name        = "Cleaned data directory"
-    Description = "Directory for cleaned customer data (Glue output)"
-  }
-
   depends_on = [module.customer_data_bucket]
 }
 
@@ -81,11 +71,6 @@ resource "aws_s3_object" "features_folder" {
   bucket       = module.customer_data_bucket.bucket_id
   key          = "features/"
   content_type = "application/x-directory"
-
-  tags = {
-    Name        = "Features data directory"
-    Description = "Directory for engineered customer features (Glue output)"
-  }
 
   depends_on = [module.customer_data_bucket]
 }
@@ -96,11 +81,6 @@ resource "aws_s3_object" "temp_folder" {
   key          = "temp/"
   content_type = "application/x-directory"
 
-  tags = {
-    Name        = "Temporary directory"
-    Description = "Directory for Glue temporary files"
-  }
-
   depends_on = [module.customer_data_bucket]
 }
 
@@ -109,11 +89,6 @@ resource "aws_s3_object" "scripts_folder" {
   bucket       = module.customer_data_bucket.bucket_id
   key          = "scripts/"
   content_type = "application/x-directory"
-
-  tags = {
-    Name        = "Scripts directory"
-    Description = "Directory for Glue job scripts"
-  }
 
   depends_on = [module.customer_data_bucket]
 }
