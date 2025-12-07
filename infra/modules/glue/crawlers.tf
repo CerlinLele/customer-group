@@ -27,6 +27,23 @@ resource "aws_glue_crawler" "raw_customer_base" {
   # Crawler configuration
   description = "Automatically discovers schema for raw customer base CSV files"
 
+  # Configuration for CSV parsing and table naming
+  configuration = jsonencode({
+    Version = 1.0
+    CrawlerOutput = {
+      TableCreation = "Enabled"
+      Partitioning = {
+        Enabled = false
+      }
+    }
+    Grouping = {
+      BehaviorOnUpdate = "UPDATE_IN_DATABASE"
+    }
+    Connection = {
+      ConnectionRequirement = "Optional"
+    }
+  })
+
   tags = merge(
     var.tags,
     {

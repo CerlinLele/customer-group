@@ -5,19 +5,23 @@
       "job_type": "glueetl",
       "description": "清洗和标准化客户数据",
       "script_location": "s3://your-bucket/scripts/1_data_cleansing.py",
-      "max_capacity": 2,
-      "worker_type": "G.1X",
+      "max_capacity": 4,
+      "worker_type": "G.2X",
       "glue_version": "4.0",
-      "timeout": 30,
+      "timeout": 60,
       "max_retries": 1,
       "parameters": {
         "--INPUT_DATABASE": "customer_raw_db",
-        "--INPUT_TABLE_BASE": "raw_customer_base",
-        "--INPUT_TABLE_BEHAVIOR": "raw_customer_behavior_assets",
+        "--INPUT_TABLE_BASE": "raw_customer_base_csv",
+        "--INPUT_TABLE_BEHAVIOR": "raw_customer_behavior_assets_csv",
         "--OUTPUT_BUCKET": "s3://your-bucket/cleaned",
         "--OUTPUT_PATH_BASE": "customer_base",
-        "--OUTPUT_PATH_BEHAVIOR": "customer_behavior"
+        "--OUTPUT_PATH_BEHAVIOR": "customer_behavior",
+        "--TempDir": "s3://your-bucket/temp",
+        "--enable-glue-datacatalog": "true",
+        "--job-bookmark-option": "job-bookmark-enable"
       },
+      "connections": [],
       "dependencies": []
     },
     {
@@ -25,18 +29,22 @@
       "job_type": "glueetl",
       "description": "生成客户特征用于分析和建模",
       "script_location": "s3://your-bucket/scripts/2_feature_engineering.py",
-      "max_capacity": 2,
-      "worker_type": "G.1X",
+      "max_capacity": 4,
+      "worker_type": "G.2X",
       "glue_version": "4.0",
-      "timeout": 30,
+      "timeout": 60,
       "max_retries": 1,
       "parameters": {
         "--INPUT_DATABASE": "customer_cleaned_db",
         "--INPUT_TABLE_BASE": "cleaned_customer_base",
         "--INPUT_TABLE_BEHAVIOR": "cleaned_customer_behavior",
         "--OUTPUT_BUCKET": "s3://your-bucket/features",
-        "--OUTPUT_PATH": "customer_features"
+        "--OUTPUT_PATH": "customer_features",
+        "--TempDir": "s3://your-bucket/temp",
+        "--enable-glue-datacatalog": "true",
+        "--job-bookmark-option": "job-bookmark-enable"
       },
+      "connections": [],
       "dependencies": ["customer-data-cleansing"]
     }
   ],
