@@ -32,10 +32,10 @@ resource "aws_glue_job" "jobs" {
       "--job-bookmark-option"              = var.enable_job_bookmarks ? "job-bookmark-enable" : "job-bookmark-disable"
       "--TempDir"                          = "s3://${var.s3_bucket_name}/temp/"
     },
-    # Add VPC configuration parameters if subnet_ids are provided
     length(var.subnet_ids) > 0 ? {
-      "--vpc-subnet-ids"         = join(",", var.subnet_ids)
-      "--vpc-security-group-ids" = join(",", var.security_group_ids)
+      "--subnet-id"             = join(",", var.subnet_ids)
+      "--security-group-id"     = join(",", var.security_group_ids)
+      "--availability-zone"     = "auto"
     } : {}
   )
 
@@ -44,9 +44,11 @@ resource "aws_glue_job" "jobs" {
     max_concurrent_runs = 1
   }
 
-  # VPC configuration - fix for executor connection issues
-  # Only configure VPC if subnet_ids are provided
+  # Security configuration for encryption and VPC
   security_configuration = length(var.subnet_ids) > 0 ? aws_glue_security_configuration.vpc_security[0].name : null
+
+  # VPC configuration via execution class - CRITICAL for executor connection issues
+  execution_class = length(var.subnet_ids) > 0 ? "FLEX" : "STANDARD"
 
   tags = merge(
     var.tags,
