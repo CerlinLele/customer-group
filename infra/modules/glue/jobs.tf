@@ -33,9 +33,9 @@ resource "aws_glue_job" "jobs" {
       "--TempDir"                          = "s3://${var.s3_bucket_name}/temp/"
     },
     length(var.subnet_ids) > 0 ? {
-      "--subnet-id"             = join(",", var.subnet_ids)
-      "--security-group-id"     = join(",", var.security_group_ids)
-      "--availability-zone"     = "auto"
+      "--subnet-id"         = join(",", var.subnet_ids)
+      "--security-group-id" = join(",", var.security_group_ids)
+      "--availability-zone" = "auto"
     } : {}
   )
 
