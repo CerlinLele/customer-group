@@ -93,6 +93,52 @@ resource "aws_s3_object" "scripts_folder" {
   depends_on = [module.customer_data_bucket]
 }
 
+# Upload data cleansing Glue script
+resource "aws_s3_object" "glue_data_cleansing_script" {
+  bucket = module.customer_data_bucket.bucket_id
+  key    = "scripts/1_data_cleansing.py"
+  source = "${path.root}/../glue_scripts/1_data_cleansing.py"
+
+  # Use etag to detect file changes
+  etag = filemd5("${path.root}/../glue_scripts/1_data_cleansing.py")
+
+  # Set content type
+  content_type = "text/x-python"
+
+  # Storage class for cost optimization
+  storage_class = "STANDARD"
+
+  tags = {
+    Name        = "Data Cleansing Script"
+    Description = "Glue job script: clean raw customer data"
+  }
+
+  depends_on = [aws_s3_object.scripts_folder]
+}
+
+# Upload feature engineering Glue script
+resource "aws_s3_object" "glue_feature_engineering_script" {
+  bucket = module.customer_data_bucket.bucket_id
+  key    = "scripts/2_feature_engineering.py"
+  source = "${path.root}/../glue_scripts/2_feature_engineering.py"
+
+  # Use etag to detect file changes
+  etag = filemd5("${path.root}/../glue_scripts/2_feature_engineering.py")
+
+  # Set content type
+  content_type = "text/x-python"
+
+  # Storage class for cost optimization
+  storage_class = "STANDARD"
+
+  tags = {
+    Name        = "Feature Engineering Script"
+    Description = "Glue job script: generate ML features from cleaned data"
+  }
+
+  depends_on = [aws_s3_object.scripts_folder]
+}
+
 # Output information about uploaded files
 output "raw_data_location" {
   description = "S3 location of raw customer data files"
@@ -107,6 +153,16 @@ output "customer_base_s3_path" {
 output "customer_behavior_assets_s3_path" {
   description = "S3 path for customer_behavior_assets.csv"
   value       = "s3://${module.customer_data_bucket.bucket_id}/${aws_s3_object.customer_behavior_assets_csv.key}"
+}
+
+output "data_cleansing_script_s3_path" {
+  description = "S3 path for data cleansing Glue script"
+  value       = "s3://${module.customer_data_bucket.bucket_id}/${aws_s3_object.glue_data_cleansing_script.key}"
+}
+
+output "feature_engineering_script_s3_path" {
+  description = "S3 path for feature engineering Glue script"
+  value       = "s3://${module.customer_data_bucket.bucket_id}/${aws_s3_object.glue_feature_engineering_script.key}"
 }
 
 output "s3_directory_structure" {
