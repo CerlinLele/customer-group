@@ -31,13 +31,22 @@ resource "aws_glue_job" "jobs" {
       "--enable-continuous-cloudwatch-log" = var.enable_continuous_logging ? "true" : "false"
       "--job-bookmark-option"              = var.enable_job_bookmarks ? "job-bookmark-enable" : "job-bookmark-disable"
       "--TempDir"                          = "s3://${var.s3_bucket_name}/temp/"
-    }
+    },
+    # Add VPC configuration parameters if subnet_ids are provided
+    length(var.subnet_ids) > 0 ? {
+      "--vpc-subnet-ids"         = join(",", var.subnet_ids)
+      "--vpc-security-group-ids" = join(",", var.security_group_ids)
+    } : {}
   )
 
   # Execution property
   execution_property {
     max_concurrent_runs = 1
   }
+
+  # VPC configuration - fix for executor connection issues
+  # Only configure VPC if subnet_ids are provided
+  security_configuration = length(var.subnet_ids) > 0 ? aws_glue_security_configuration.vpc_security[0].name : null
 
   tags = merge(
     var.tags,
@@ -52,3 +61,6 @@ resource "aws_glue_job" "jobs" {
     aws_glue_catalog_database.databases
   ]
 }
+
+# Note: VPC configuration is applied via security configuration and job properties
+# See security.tf for security group and vpc_config resource

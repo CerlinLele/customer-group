@@ -1,6 +1,24 @@
 # Get current AWS account ID
 data "aws_caller_identity" "current" {}
 
+# VPC module for Glue jobs
+module "vpc" {
+  source = "./modules/vpc"
+
+  project_name = var.project_name
+  environment  = var.environment
+
+  # VPC CIDR configuration
+  vpc_cidr             = "10.0.0.0/16"
+  public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+
+  tags = {
+    Component = "NetworkInfrastructure"
+    Team      = "DataEngineering"
+  }
+}
+
 # S3 bucket module for storing customer data
 module "customer_data_bucket" {
   source = "./modules/s3_bucket"
@@ -33,12 +51,17 @@ module "glue_pipeline" {
   enable_job_bookmarks      = true
   enable_continuous_logging = true
 
+  # VPC Configuration (using the new dedicated VPC)
+  vpc_id             = module.vpc.vpc_id
+  subnet_ids         = module.vpc.private_subnet_ids
+  security_group_ids = [module.vpc.glue_security_group_id]
+
   # Tags
   tags = {
     Component = "DataPipeline"
     Team      = "DataEngineering"
   }
 
-  # Dependency: ensure S3 bucket is created first
-  depends_on = [module.customer_data_bucket]
+  # Dependency: ensure S3 bucket and VPC are created first
+  depends_on = [module.customer_data_bucket, module.vpc]
 }

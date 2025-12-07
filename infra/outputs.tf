@@ -8,6 +8,33 @@ output "environment" {
   value       = var.environment
 }
 
+# VPC outputs
+output "vpc_id" {
+  description = "ID of the dedicated VPC for Glue jobs"
+  value       = module.vpc.vpc_id
+}
+
+output "vpc_cidr" {
+  description = "CIDR block of the VPC"
+  value       = module.vpc.vpc_cidr
+}
+
+output "public_subnet_ids" {
+  description = "IDs of public subnets in the VPC"
+  value       = module.vpc.public_subnet_ids
+}
+
+output "private_subnet_ids" {
+  description = "IDs of private subnets for Glue jobs"
+  value       = module.vpc.private_subnet_ids
+}
+
+output "glue_security_group_id" {
+  description = "ID of the security group for Glue jobs"
+  value       = module.vpc.glue_security_group_id
+}
+
+# S3 outputs
 output "s3_bucket_name" {
   description = "Name of the S3 bucket for customer data"
   value       = module.customer_data_bucket.bucket_id

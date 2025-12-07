@@ -47,3 +47,21 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "vpc_id" {
+  description = "VPC ID for Glue job security group (optional, if in private VPC)"
+  type        = string
+  default     = ""
+}
+
+variable "subnet_ids" {
+  description = "Subnet IDs for Glue job to run in (optional, for private VPC)"
+  type        = list(string)
+  default     = []
+}
+
+variable "security_group_ids" {
+  description = "Security group IDs for Glue job (optional)"
+  type        = list(string)
+  default     = []
+}
