@@ -59,7 +59,26 @@ data "aws_iam_policy_document" "glue_policy" {
       "glue:UpdatePartition",
       "glue:BatchUpdatePartition",
       "glue:DeletePartition",
-      "glue:BatchDeletePartition"
+      "glue:BatchDeletePartition",
+      "glue:CreateTable",
+      "glue:UpdateTable",
+      "glue:DeleteTable",
+      "glue:GetTableVersions"
+    ]
+
+    resources = ["*"]
+  }
+
+  # Glue Crawler execution permissions
+  statement {
+    sid    = "GlueCrawlerExecution"
+    effect = "Allow"
+
+    actions = [
+      "glue:GetCrawler",
+      "glue:GetCrawlers",
+      "glue:StartCrawler",
+      "glue:StopCrawler"
     ]
 
     resources = ["*"]
