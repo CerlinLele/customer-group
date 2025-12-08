@@ -46,6 +46,37 @@ args = getResolvedOptions(sys.argv, [
 
 # Spark和Glue会话
 sc = SparkContext()
+# 优化Spark配置来减少网络连接问题
+sc.setLogLevel("WARN")  # 减少日志输出
+
+spark_conf = sc.getConf()
+
+# ========== 网络连接和超时配置 ==========
+# 增加网络超时时间（解决"Connection refused"问题）
+spark_conf.set("spark.network.timeout", "600s")  # 从300s增加到600s
+spark_conf.set("spark.executor.heartbeatInterval", "120s")  # 增加心跳间隔
+spark_conf.set("spark.rpc.numRetries", "10")  # 增加重试次数（从5到10）
+spark_conf.set("spark.rpc.retry.wait", "1s")  # RPC重试等待时间
+spark_conf.set("spark.shuffle.io.retryWait", "10s")  # 增加shuffle重试等待
+spark_conf.set("spark.shuffle.io.maxRetries", "5")  # Shuffle最大重试次数
+
+# ========== 内存和资源配置 ==========
+spark_conf.set("spark.dynamicAllocation.enabled", "false")  # 禁用动态分配（防止不稳定）
+spark_conf.set("spark.driver.memory", "4g")  # Driver内存
+spark_conf.set("spark.executor.memory", "4g")  # Executor内存
+spark_conf.set("spark.executor.cores", "4")  # 每个Executor的核数
+spark_conf.set("spark.default.parallelism", "8")  # 默认分区数
+
+# ========== Executor相关配置 ==========
+spark_conf.set("spark.executor.maxFailures", "5")  # Executor最大失败次数
+spark_conf.set("spark.task.maxFailures", "5")  # Task最大失败次数
+spark_conf.set("spark.speculation", "true")  # 启用推测执行
+spark_conf.set("spark.speculation.multiplier", "1.5")
+
+# ========== 日志和调试 ==========
+spark_conf.set("spark.driver.extraJavaOptions", "-verbose:gc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps")
+spark_conf.set("spark.executor.extraJavaOptions", "-verbose:gc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps")
+
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
@@ -126,18 +157,24 @@ df_customer_base_cleaned = df_customer_base_cleaned \
                      month(col("open_account_date")))
                 .otherwise(None))
 
-# 2.5 空值处理统计
-null_counts_base = df_customer_base_cleaned.select([
-    sum(isnull(col(c)).cast("int")).alias(c) for c in df_customer_base_cleaned.columns
-])
+# 2.5 空值处理统计 (缓存计算结果)
 logger.info("客户基本信息缺失值统计:")
-null_counts_base.show()
+try:
+    null_counts_base = df_customer_base_cleaned.select([
+        sum(isnull(col(c)).cast("int")).alias(c) for c in df_customer_base_cleaned.columns
+    ])
+    null_counts_base.show()
+except Exception as e:
+    logger.warning(f"缺失值统计失败（跳过此步骤）: {str(e)}")
 
-# 2.6 去重（基于customer_id）
+# 2.6 去重（基于customer_id）- 在小数据集上进行
 df_customer_base_cleaned = df_customer_base_cleaned \
-    .dropDuplicates(["customer_id"])
+    .dropDuplicates(["customer_id"]) \
+    .persist()  # 缓存，避免重复计算
 
-logger.info(f"清洗后客户基本信息行数: {df_customer_base_cleaned.count()}")
+# 计算清洗后行数
+cleaned_base_count = df_customer_base_cleaned.count()
+logger.info(f"清洗后客户基本信息行数: {cleaned_base_count}")
 
 # ============================================================================
 # 3. 清洗 - 客户行为资产表
@@ -209,20 +246,26 @@ df_customer_behavior_cleaned = df_customer_behavior_cleaned \
                 .otherwise("present"))
 
 # 3.6 空值处理统计
-null_counts_behavior = df_customer_behavior_cleaned.select([
-    sum(isnull(col(c)).cast("int")).alias(c) for c in df_customer_behavior_cleaned.columns
-])
 logger.info("客户行为资产缺失值统计:")
-null_counts_behavior.show()
+try:
+    null_counts_behavior = df_customer_behavior_cleaned.select([
+        sum(isnull(col(c)).cast("int")).alias(c) for c in df_customer_behavior_cleaned.columns
+    ])
+    null_counts_behavior.show()
+except Exception as e:
+    logger.warning(f"缺失值统计失败（跳过此步骤）: {str(e)}")
 
 # 3.7 去重（基于id，保留最新的记录）
 window_spec = Window.partitionBy("customer_id", "stat_month").orderBy(col("last_app_login_time").desc())
 df_customer_behavior_cleaned = df_customer_behavior_cleaned \
     .withColumn("row_num", row_number().over(window_spec)) \
     .filter(col("row_num") == 1) \
-    .drop("row_num")
+    .drop("row_num") \
+    .persist()  # 缓存，避免重复计算
 
-logger.info(f"清洗后客户行为资产行数: {df_customer_behavior_cleaned.count()}")
+# 计算清洗后行数
+cleaned_behavior_count = df_customer_behavior_cleaned.count()
+logger.info(f"清洗后客户行为资产行数: {cleaned_behavior_count}")
 
 # ============================================================================
 # 4. 数据质量检查报告
@@ -235,16 +278,16 @@ quality_report = {
     "job_name": args['JOB_NAME'],
     "customer_base": {
         "input_rows": df_customer_base.count(),
-        "output_rows": df_customer_base_cleaned.count(),
-        "duplicate_removed": df_customer_base.count() - df_customer_base_cleaned.count(),
+        "output_rows": cleaned_base_count,
+        "duplicate_removed": df_customer_base.count() - cleaned_base_count,
         "age_invalid_count": df_customer_base_cleaned.filter(col("age").isNull()).count(),
         "income_invalid_count": df_customer_base_cleaned.filter(col("monthly_income").isNull()).count(),
         "gender_invalid_count": df_customer_base_cleaned.filter(col("gender_flag") == "invalid").count()
     },
     "customer_behavior": {
         "input_rows": df_customer_behavior.count(),
-        "output_rows": df_customer_behavior_cleaned.count(),
-        "duplicate_removed": df_customer_behavior.count() - df_customer_behavior_cleaned.count(),
+        "output_rows": cleaned_behavior_count,
+        "duplicate_removed": df_customer_behavior.count() - cleaned_behavior_count,
         "contact_result_missing": df_customer_behavior_cleaned.filter(col("contact_result_flag") == "missing").count(),
         "assets_invalid_count": df_customer_behavior_cleaned.filter(col("total_assets_valid") == "invalid").count()
     }
