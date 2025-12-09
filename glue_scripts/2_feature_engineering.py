@@ -50,6 +50,37 @@ args = getResolvedOptions(sys.argv, [
 ])
 
 sc = SparkContext()
+# 优化Spark配置来减少网络连接问题
+sc.setLogLevel("WARN")  # 减少日志输出
+
+spark_conf = sc.getConf()
+
+# ========== 网络连接和超时配置 ==========
+# 增加网络超时时间（解决"Connection refused"问题）
+spark_conf.set("spark.network.timeout", "600s")  # 从300s增加到600s
+spark_conf.set("spark.executor.heartbeatInterval", "120s")  # 增加心跳间隔
+spark_conf.set("spark.rpc.numRetries", "10")  # 增加重试次数（从5到10）
+spark_conf.set("spark.rpc.retry.wait", "1s")  # RPC重试等待时间
+spark_conf.set("spark.shuffle.io.retryWait", "10s")  # 增加shuffle重试等待
+spark_conf.set("spark.shuffle.io.maxRetries", "5")  # Shuffle最大重试次数
+
+# ========== 内存和资源配置 ==========
+spark_conf.set("spark.dynamicAllocation.enabled", "false")  # 禁用动态分配（防止不稳定）
+spark_conf.set("spark.driver.memory", "4g")  # Driver内存
+spark_conf.set("spark.executor.memory", "4g")  # Executor内存
+spark_conf.set("spark.executor.cores", "4")  # 每个Executor的核数
+spark_conf.set("spark.default.parallelism", "8")  # 默认分区数
+
+# ========== Executor相关配置 ==========
+spark_conf.set("spark.executor.maxFailures", "5")  # Executor最大失败次数
+spark_conf.set("spark.task.maxFailures", "5")  # Task最大失败次数
+spark_conf.set("spark.speculation", "true")  # 启用推测执行
+spark_conf.set("spark.speculation.multiplier", "1.5")
+
+# ========== 日志和调试 ==========
+spark_conf.set("spark.driver.extraJavaOptions", "-verbose:gc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps")
+spark_conf.set("spark.executor.extraJavaOptions", "-verbose:gc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps")
+
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
@@ -163,6 +194,14 @@ df_behavior_latest = df_customer_behavior \
         col("last_app_login_time"),
         col("last_contact_time"),
         col("total_assets"),
+        col("deposit_balance"),
+        col("financial_balance"),
+        col("fund_balance"),
+        col("insurance_balance"),
+        col("deposit_flag"),
+        col("financial_flag"),
+        col("fund_flag"),
+        col("insurance_flag"),
         col("credit_card_monthly_expense"),
         col("investment_monthly_count"),
         col("app_login_count"),
@@ -399,16 +438,22 @@ logger.info(f"最终特征表行数: {df_final_features.count()}")
 logger.info(f"特征列数: {len(df_final_features.columns)}")
 
 # 统计各客户分层
-tier_stats = df_final_features.groupBy("customer_tier").count().collect()
 logger.info("客户分层分布:")
-for row in tier_stats:
-    logger.info(f"  {row['customer_tier']}: {row['count']} 人")
+try:
+    tier_stats = df_final_features.groupBy("customer_tier").count().collect()
+    for row in tier_stats:
+        logger.info(f"  {row['customer_tier']}: {row['count']} 人")
+except Exception as e:
+    logger.warning(f"客户分层统计失败（跳过）: {str(e)}")
 
 # 统计活动类型分布
-activity_stats = df_final_features.groupBy("activity_type").count().collect()
 logger.info("活跃类型分布:")
-for row in activity_stats:
-    logger.info(f"  {row['activity_type']}: {row['count']} 人")
+try:
+    activity_stats = df_final_features.groupBy("activity_type").count().collect()
+    for row in activity_stats:
+        logger.info(f"  {row['activity_type']}: {row['count']} 人")
+except Exception as e:
+    logger.warning(f"活动类型统计失败（跳过）: {str(e)}")
 
 # ============================================================================
 # 11. 输出特征表
@@ -435,9 +480,14 @@ import boto3
 cloudwatch = boto3.client('cloudwatch')
 
 try:
-    # 计算统计数据
-    vip_count = df_final_features.filter(col("customer_tier") == "VIP高价值").count()
-    at_risk_count = df_final_features.filter(col("is_at_risk") == 1).count()
+    # 计算统计数据（一次扫描）
+    stats_df = df_final_features.select(
+        (col("customer_tier") == "VIP高价值").cast("int").alias("is_vip"),
+        col("is_at_risk")
+    ).agg(
+        sum(col("is_vip")).alias("vip_count"),
+        sum(col("is_at_risk")).alias("at_risk_count")
+    ).collect()[0]
 
     cloudwatch.put_metric_data(
         Namespace='CustomerDataPipeline',
@@ -449,12 +499,12 @@ try:
             },
             {
                 'MetricName': 'VIPCustomersCount',
-                'Value': vip_count,
+                'Value': int(stats_df['vip_count']),
                 'Unit': 'Count'
             },
             {
                 'MetricName': 'AtRiskCustomersCount',
-                'Value': at_risk_count,
+                'Value': int(stats_df['at_risk_count']),
                 'Unit': 'Count'
             }
         ]
