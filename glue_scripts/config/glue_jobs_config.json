@@ -1,0 +1,133 @@
+{
+  "glue_jobs": [
+    {
+      "job_name": "customer-data-cleansing",
+      "job_type": "glueetl",
+      "description": "清洗和标准化客户数据",
+      "script_location": "s3://your-bucket/scripts/1_data_cleansing.py",
+      "max_capacity": 4,
+      "worker_type": "G.2X",
+      "glue_version": "4.0",
+      "timeout": 60,
+      "max_retries": 1,
+      "parameters": {
+        "--INPUT_DATABASE": "customer_raw_db",
+        "--INPUT_TABLE_BASE": "raw_customer_base_csv",
+        "--INPUT_TABLE_BEHAVIOR": "raw_customer_behavior_assets_csv",
+        "--OUTPUT_BUCKET": "s3://your-bucket/cleaned",
+        "--OUTPUT_PATH_BASE": "customer_base",
+        "--OUTPUT_PATH_BEHAVIOR": "customer_behavior",
+        "--TempDir": "s3://your-bucket/temp",
+        "--enable-glue-datacatalog": "true",
+        "--job-bookmark-option": "job-bookmark-enable"
+      },
+      "connections": [],
+      "dependencies": []
+    },
+    {
+      "job_name": "customer-feature-engineering",
+      "job_type": "glueetl",
+      "description": "生成客户特征用于分析和建模",
+      "script_location": "s3://your-bucket/scripts/2_feature_engineering.py",
+      "max_capacity": 4,
+      "worker_type": "G.2X",
+      "glue_version": "4.0",
+      "timeout": 60,
+      "max_retries": 1,
+      "parameters": {
+        "--INPUT_DATABASE": "customer_cleaned_db",
+        "--INPUT_TABLE_BASE": "cleaned_customer_base",
+        "--INPUT_TABLE_BEHAVIOR": "cleaned_customer_behavior",
+        "--OUTPUT_BUCKET": "s3://your-bucket/features",
+        "--OUTPUT_PATH": "customer_features",
+        "--TempDir": "s3://your-bucket/temp",
+        "--enable-glue-datacatalog": "true",
+        "--job-bookmark-option": "job-bookmark-enable"
+      },
+      "connections": [],
+      "dependencies": ["customer-data-cleansing"]
+    }
+  ],
+  "crawlers": [],
+  "databases": [
+    {
+      "database_name": "customer_raw_db",
+      "description": "原始客户数据"
+    },
+    {
+      "database_name": "customer_cleaned_db",
+      "description": "清洗后的客户数据"
+    },
+    {
+      "database_name": "customer_feature_db",
+      "description": "客户特征数据"
+    }
+  ],
+  "cloudwatch_alarms": [],
+  "iam_role_policy": {
+    "role_name": "GlueCustomerDataRole",
+    "policy_document": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "S3Access",
+          "Effect": "Allow",
+          "Action": [
+            "s3:GetObject",
+            "s3:PutObject",
+            "s3:DeleteObject",
+            "s3:ListBucket"
+          ],
+          "Resource": [
+            "arn:aws:s3:::your-customer-data-bucket/*",
+            "arn:aws:s3:::your-customer-data-bucket"
+          ]
+        },
+        {
+          "Sid": "GlueCatalogAccess",
+          "Effect": "Allow",
+          "Action": [
+            "glue:GetDatabase",
+            "glue:GetTable",
+            "glue:GetPartitions",
+            "glue:CreatePartition",
+            "glue:BatchCreatePartition",
+            "glue:UpdatePartition",
+            "glue:BatchUpdatePartition",
+            "glue:DeletePartition",
+            "glue:BatchDeletePartition"
+          ],
+          "Resource": "*"
+        },
+        {
+          "Sid": "GlueJobExecution",
+          "Effect": "Allow",
+          "Action": [
+            "glue:StartJobRun",
+            "glue:GetJobRun",
+            "glue:GetJobRuns"
+          ],
+          "Resource": "arn:aws:glue:*:*:job/*"
+        },
+        {
+          "Sid": "CloudWatchLogsAccess",
+          "Effect": "Allow",
+          "Action": [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ],
+          "Resource": "arn:aws:logs:*:*:*"
+        },
+        {
+          "Sid": "CloudWatchMetrics",
+          "Effect": "Allow",
+          "Action": [
+            "cloudwatch:PutMetricData"
+          ],
+          "Resource": "*"
+        }
+      ]
+    }
+  }
+}
