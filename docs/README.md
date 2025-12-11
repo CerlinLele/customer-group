@@ -25,6 +25,7 @@ AWS Glue 数据处理平台的完整文档。
 #### 操作指南
 - **[Glue 操作指南](./glue/operations/01_OPERATIONS_GUIDE.md)** - 日常操作和管理
 - **[Job 执行指南](./glue/operations/02_JOB_EXECUTION.md)** - Job 的创建、配置和执行
+- **[Feature Engineering](./glue/operations/03_FEATURE_ENGINEERING.md)** - 特征工程详解（46 个特征）
 
 #### 问题修复历程
 按时间顺序记录遇到的问题和解决方案。

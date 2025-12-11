@@ -325,6 +325,8 @@ aws cloudwatch put-metric-alarm \
 ## 相关文档
 
 - [Glue 快速开始](../00_QUICK_START.md)
+- [Job 执行指南](./02_JOB_EXECUTION.md)
+- [Feature Engineering](./03_FEATURE_ENGINEERING.md)
 - [数据目录](../concepts/01_DATA_CATALOG.md)
 - [Spark 连接失败问题](../issues/01_SPARK_CONNECTION_FAILURE.md)
 
